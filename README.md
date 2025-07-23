@@ -567,158 +567,26 @@ REST API выбран потому что:
 - Обеспечивает синхронное взаимодействие, что удобно для операций типа "запрос-ответ" между сервисами (например, получение состояния устройства или регистрация датчика).
 - Для событийных взаимодействий (например, телеметрия) планируется использование асинхронной модели на Event Bus (Kafka/RabbitMQ), документируемой через AsyncAPI, но в рамках этого задания основное внимание будет уделено REST API.
 
-## Документация API
+## API
 
-Документация API подготовлена для ключевых микросервисов.
-
-### Device Management Service
-
-#### `GET /devices/{id}` — Получить информацию об устройстве
-
-**Пример ответа:**
-```json
-{
-  "id": "123e4567-e89b-12d3-a456-426614174000",
-  "serial_number": "SN-001",
-  "type": "thermostat",
-  "status": "online",
-  "house_id": "h1"
-}
-```
-
-**Коды ответа:**
-- `200 OK`: Устройство найдено
-- `404 Not Found`: Устройство не существует
-- `500 Internal Server Error`
-
----
-
-#### `POST /devices` — Зарегистрировать новое устройство
-
-**Пример запроса:**
-```json
-{
-  "serial_number": "SN-002",
-  "type_id": "t1",
-  "house_id": "h1"
-}
-```
-
-**Пример ответа:**
-```json
-{
-  "id": "new-device-id"
-}
-```
-
-**Коды ответа:**
-- `201 Created`: Устройство создано
-- `400 Bad Request`: Неверные данные
-- `500 Internal Server Error`
-
----
-
-## Пример `temperature-api` (Python, Flask)
-
-```python
-from flask import Flask, request, jsonify
-import random
-
-app = Flask(__name__)
-
-@app.route('/temperature')
-def get_temperature():
-    sensor_id = request.args.get('sensorId', '')
-    location = request.args.get('location', '')
-
-    # If no location is provided, determine from sensorId
-    if location == "":
-        if sensor_id == "1":
-            location = "Living Room"
-        elif sensor_id == "2":
-            location = "Bedroom"
-        elif sensor_id == "3":
-            location = "Kitchen"
-        else:
-            location = "Unknown"
-
-    # If no sensorId is provided, determine from location
-    if sensor_id == "":
-        if location == "Living Room":
-            sensor_id = "1"
-        elif location == "Bedroom":
-            sensor_id = "2"
-        elif location == "Kitchen":
-            sensor_id = "3"
-        else:
-            sensor_id = "0"
-
-    temperature = round(random.uniform(15.0, 30.0), 1)
-
-    return jsonify({
-        "sensorId": sensor_id,
-        "location": location,
-        "temperature": temperature
-    })
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8081)
-```
+- [API (temperature_api.py)](https://github.com/hisamatsu-ya/warmhouse/blob/main/apps/smart_home/services/temperature_api.py)
 
 # Задание 5. Docker и docker-compose
-Увы, в данный момент в отпуске с детьми, потом поеду в командировку без возможности настроить enviorement и отладить приложение.
 
-## Dockerfile
+Обновил код в Apps
 
-```dockerfile
-FROM python:3.10-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY app.py .
-
-EXPOSE 8081
-
-CMD ["python", "app.py"]
-```
-
-## docker-compose.yml
-
-```yaml
-version: '3.8'
-
-services:
-  temperature-api:
-    build:
-      context: ./temperature-api
-    ports:
-      - "8081:8081"
-
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: smarthome
-      POSTGRES_USER: smarthome_user
-      POSTGRES_PASSWORD: smarthome_pass
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./smart_home/init.sql:/docker-entrypoint-initdb.d/init.sql
-```
+- [Dockerfile (smart_home)](https://github.com/hisamatsu-ya/warmhouse/blob/main/apps/smart_home/Dockerfile )
+- [docker‑compose.yml](https://github.com/hisamatsu-ya/warmhouse/blob/main/apps/docker-compose.yml )
 
 
-
-
-
-
+Дайте пожалуйста знать если у Вас будут какие либо вопросы.
 
 
 ===================================================================================
 
-
+Notes:
+docker compose up --build -d
+http://localhost:8081/docs#/
 
 
 ```
