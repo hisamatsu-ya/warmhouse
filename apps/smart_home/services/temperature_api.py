@@ -4,6 +4,7 @@ from pydantic import BaseModel
 import random
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from datetime import datetime
 
 app = FastAPI(
     title="Smart Home Temperature API",
@@ -23,7 +24,7 @@ app.add_middleware(
 
 # Database connection configuration
 DB_HOST = "postgres"
-DB_NAME = "smart_home"
+DB_NAME = "smarthome"
 DB_USER = "postgres"
 DB_PASSWORD = "password"
 DB_PORT = "5432"
@@ -37,16 +38,7 @@ def get_db_connection():
         port=DB_PORT
     )
 
-# Sensor model
-class SensorCreate(BaseModel):
-    location: str
-
-class SensorResponse(BaseModel):
-    sensor_id: str
-    location: str
-    temperature: float
-
-# Mapping dictionaries for sensor_id and location
+# Mapping dictionaries
 SENSOR_TO_LOCATION = {
     "1": "Living Room",
     "2": "Bedroom",
@@ -59,12 +51,31 @@ LOCATION_TO_SENSOR = {
     "Kitchen": "3"
 }
 
+# Sensor models
+class SensorCreate(BaseModel):
+    location: str
+    name: str | None = None  # Optional, defaults to location-based name
+    type: str = "temperature"  # Default to temperature sensor
+    unit: str = "Celsius"  # Default unit
+    status: str = "active"  # Default status
+
+class SensorResponse(BaseModel):
+    id: int
+    sensor_id: str
+    name: str
+    type: str
+    location: str
+    value: float
+    unit: str
+    status: str
+    last_updated: datetime
+    created_at: datetime
+
 def generate_unique_sensor_id():
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             while True:
-                # Generate a random numeric ID between 5 and 999
                 new_id = str(random.randint(5, 999))
                 cur.execute("SELECT sensor_id FROM sensors WHERE sensor_id = %s", (new_id,))
                 if not cur.fetchone():
@@ -80,23 +91,38 @@ def create_sensor(sensor: SensorCreate):
 
     # Get sensor_id based on location or generate a unique random ID
     sensor_id = LOCATION_TO_SENSOR.get(location, generate_unique_sensor_id())
+    # Set default name based on location if not provided
+    name = sensor.name or f"{location} Sensor"
 
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "INSERT INTO sensors (sensor_id, location) VALUES (%s, %s) ON CONFLICT (sensor_id) DO UPDATE SET location = %s RETURNING *",
-                (sensor_id, location, location)
+                """
+                INSERT INTO sensors (sensor_id, name, type, location, value, unit, status, last_updated, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                ON CONFLICT (sensor_id) DO UPDATE 
+                SET location = EXCLUDED.location,
+                    name = EXCLUDED.name,
+                    type = EXCLUDED.type,
+                    unit = EXCLUDED.unit,
+                    status = EXCLUDED.status,
+                    last_updated = NOW()
+                RETURNING *
+                """,
+                (
+                    sensor_id,
+                    name,
+                    sensor.type,
+                    location,
+                    round(random.uniform(15.0, 30.0), 1),
+                    sensor.unit,
+                    sensor.status
+                )
             )
             result = cur.fetchone()
             conn.commit()
-
-            temperature = round(random.uniform(15.0, 30.0), 1)
-            return SensorResponse(
-                sensor_id=result["sensor_id"],
-                location=result["location"],
-                temperature=temperature
-            )
+            return SensorResponse(**result)
     finally:
         conn.close()
 
@@ -107,47 +133,54 @@ def get_all_sensors():
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT * FROM sensors")
             sensors = cur.fetchall()
-            return [
-                SensorResponse(
-                    sensor_id=sensor["sensor_id"],
-                    location=sensor["location"],
-                    temperature=round(random.uniform(15.0, 30.0), 1)
-                ) for sensor in sensors
-            ]
+            return [SensorResponse(**sensor) for sensor in sensors]
     finally:
         conn.close()
 
-@app.get("/temperature")
+@app.get("/temperature", response_model=SensorResponse)
 def get_temperature(location: str = "", sensor_id: str = ""):
-    # If no location is provided, use a default based on sensor ID
+    if not location and not sensor_id:
+        raise HTTPException(status_code=400, detail="Either location or sensor_id must be provided")
+
+    # If no location is provided, use mapping based on sensor_id
     if not location and sensor_id:
         location = SENSOR_TO_LOCATION.get(sensor_id)
 
-    # If no sensor ID is provided, generate one based on location
+    # If no sensor_id is provided, use mapping based on location
     if not sensor_id and location:
         sensor_id = LOCATION_TO_SENSOR.get(location)
-
-    if not location and not sensor_id:
-        raise HTTPException(status_code=400, detail="Either location or sensor_id must be provided")
 
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             if location and not sensor_id:
-                # Look up sensor_id by location
+                # Look up sensor by location
                 cur.execute("SELECT * FROM sensors WHERE location = %s", (location.strip(),))
                 sensor = cur.fetchone()
                 if not sensor:
                     # Create a new sensor if location doesn't exist
+                    name = f"{location.strip()} Sensor"
                     sensor_id = LOCATION_TO_SENSOR.get(location.strip(), generate_unique_sensor_id())
                     cur.execute(
-                        "INSERT INTO sensors (sensor_id, location) VALUES (%s, %s) RETURNING *",
-                        (sensor_id, location.strip())
+                        """
+                        INSERT INTO sensors (sensor_id, name, type, location, value, unit, status, last_updated, created_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        RETURNING *
+                        """,
+                        (
+                            sensor_id,
+                            name,
+                            "temperature",
+                            location.strip(),
+                            round(random.uniform(15.0, 30.0), 1),
+                            "Celsius",
+                            "active"
+                        )
                     )
                     sensor = cur.fetchone()
                     conn.commit()
             elif sensor_id and not location:
-                # Look up location by sensor_id
+                # Look up sensor by sensor_id
                 cur.execute("SELECT * FROM sensors WHERE sensor_id = %s", (sensor_id,))
                 sensor = cur.fetchone()
                 if not sensor:
@@ -160,11 +193,20 @@ def get_temperature(location: str = "", sensor_id: str = ""):
                 if not sensor:
                     raise HTTPException(status_code=400, detail="Sensor_id and location do not match any sensor")
 
-            return SensorResponse(
-                sensor_id=sensor["sensor_id"],
-                location=sensor["location"],
-                temperature=round(random.uniform(15.0, 30.0), 1)
+            # Update the sensor's value and last_updated timestamp
+            new_value = round(random.uniform(15.0, 30.0), 1)
+            cur.execute(
+                """
+                UPDATE sensors
+                SET value = %s, last_updated = NOW()
+                WHERE sensor_id = %s
+                RETURNING *
+                """,
+                (new_value, sensor["sensor_id"])
             )
+            sensor = cur.fetchone()
+            conn.commit()
+            return SensorResponse(**sensor)
     finally:
         conn.close()
 
