@@ -6,6 +6,7 @@ CREATE DATABASE smarthome;
 
 -- Create the sensors table
 CREATE TABLE IF NOT EXISTS sensors (
+    sensor_id VARCHAR(50) PRIMARY KEY,
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     type VARCHAR(50) NOT NULL,
