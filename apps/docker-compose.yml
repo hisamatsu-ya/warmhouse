@@ -8,7 +8,7 @@ services:
       - postgres
     environment:
       - DB_HOST=postgres
-      - DB_NAME=smart_home
+      - DB_NAME=smarthome
       - DB_USER=postgres
       - DB_PASSWORD=password
       - DB_PORT=5432
