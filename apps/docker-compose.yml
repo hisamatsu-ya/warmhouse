@@ -1,4 +1,23 @@
 services:
+app:
+    build:
+      context: ./smart_home
+      dockerfile: Dockerfile
+    image: smarthome-app:latest
+    container_name: smarthome-app
+    depends_on:
+      postgres:
+        condition: service_healthy  # Ждем готовности БД
+      temperature-api:
+        condition: service_started  # Убедимся, что температурный API стартовал
+    environment:
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/smarthome
+      - TEMPERATURE_API_URL=http://temperature-api:8081
+    ports:
+      - "8080:8080"  # Проброс порта для основного приложения
+    restart: unless-stopped
+    networks:
+      - smarthome-network
   api:
     build: ./smart_home
     image: app:latest
