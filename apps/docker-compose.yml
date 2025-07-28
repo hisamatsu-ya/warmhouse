@@ -1,31 +1,67 @@
+
 services:
-  api:
-    build: ./smart_home
-    image: app:latest
-    ports:
-      - "8081:8081"
+  # Основной смарт-дом backend/UI (если есть)
+  app:
+    build:
+      context: ./smart_home
+      dockerfile: Dockerfile
+    image: smarthome-app:latest
+    container_name: smarthome-app
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      temperature-api:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/smarthome
+      - TEMPERATURE_API_URL=http://temperature-api:8081
+    ports:
+      - "8080:8080"  # Основной сервис (frontend/UI/API-gateway?)
+    restart: unless-stopped
+    networks:
+      - smarthome-network
+
+  # Температурный API (FastAPI, подключается к PostgreSQL)
+  temperature-api:
+    build:
+      context: ./smart_home
+      dockerfile: Dockerfile
+    image: temperature-api:latest
+    container_name: temperature-api
+    ports:
+      - "8081:8081"  # Температурный API
     environment:
       - DB_HOST=postgres
       - DB_NAME=smarthome
       - DB_USER=postgres
       - DB_PASSWORD=password
       - DB_PORT=5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
     networks:
-      - smart_home_network
+      - smarthome-network
 
+  # База данных PostgreSQL
   postgres:
     image: postgres:15
+    container_name: postgres
     environment:
-      - POSTGRES_DB=smart_home
+      - POSTGRES_DB=smarthome
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
     volumes:
       - ./smart_home/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
     networks:
-      - smart_home_network
+      - smarthome-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
-  smart_home_network:
+  smarthome-network:
     driver: bridge

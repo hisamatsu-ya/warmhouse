@@ -569,6 +569,8 @@ REST API выбран потому что:
 
 ## API
 
+  Сваггер файл лежит тут warmhouse/apps/appswarmhouse_openapi.json
+
 - [API (temperature_api.py)](https://github.com/hisamatsu-ya/warmhouse/blob/main/apps/smart_home/services/temperature_api.py)
 
 # Задание 5. Docker и docker-compose
@@ -584,8 +586,9 @@ REST API выбран потому что:
 
 ===================================================================================
 
-Notes:
+Запуск
 docker compose up --build -d
+Для проверки
 http://localhost:8081/docs#/
 
 
