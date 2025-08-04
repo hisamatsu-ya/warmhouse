@@ -4,7 +4,7 @@ services:
   app:
     build:
       context: ./smart_home
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile_go_app
     image: smarthome-app:latest
     container_name: smarthome-app
     depends_on:
