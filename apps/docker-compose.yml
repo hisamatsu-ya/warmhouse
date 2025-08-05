@@ -24,7 +24,7 @@ services:
   # Температурный API (FastAPI, подключается к PostgreSQL)
   temperature-api:
     build:
-      context: ./smart_home
+      context: ./smart_home_py
       dockerfile: Dockerfile
     image: temperature-api:latest
     container_name: temperature-api
@@ -32,7 +32,7 @@ services:
       - "8081:8081"  # Температурный API
     environment:
       - DB_HOST=postgres
-      - DB_NAME=smarthome
+      - DB_NAME=smarthome_py
       - DB_USER=postgres
       - DB_PASSWORD=password
       - DB_PORT=5432
