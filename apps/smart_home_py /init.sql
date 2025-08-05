@@ -2,7 +2,7 @@
 CREATE DATABASE smarthome_py;
 
 -- Connect to the database
-\c smarthome;
+\c smarthome_py;
 
 -- Create the sensors table
 CREATE TABLE IF NOT EXISTS sensors (
