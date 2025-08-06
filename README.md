@@ -587,9 +587,12 @@ REST API выбран потому что:
 ===================================================================================
 
 Запуск
+docker compose down --volumes --remove-orphans
 docker compose up --build -d
+
 Для проверки
-http://localhost:8081/docs#/
+http://localhost:8081/docs#/   тест API                py приложение
+http://localhost:8080/health  {"status":"ok"}          go приложение   
 
 
 ```
