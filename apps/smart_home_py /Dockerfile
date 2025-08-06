@@ -10,3 +10,4 @@ COPY services/temperature_api.py .
 EXPOSE 8081
 
 CMD ["python", "temperature_api.py"]
+
